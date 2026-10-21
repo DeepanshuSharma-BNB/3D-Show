@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050a12">
+<meta name="description" content="3D Show: inspect and assemble CAD objects on Meta Ray-Ban Display glasses.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<title>3D Show — Your CAD, in your view</title>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"}}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mqtt@5.14.1/dist/mqtt.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<section id="chooser" class="chooser">
+  <div class="chooser-bg"></div>
+  <div class="chooser-content">
+    <div class="logo-title"><span class="logo-mark">⬡</span><span><strong>3D SHOW</strong><small>CAD IN YOUR VIEW</small></span></div>
+    <div class="hero-art" aria-hidden="true"><div class="shape-a"></div><div class="shape-b"></div><div class="shape-c"></div></div>
+    <div class="eyebrow">THE WEARABLE 3D WORKSPACE</div>
+    <h1>Make your models<br><em>come alive.</em></h1>
+    <p>Import STEP CAD models on your computer or phone. Inspect and arrange them with wrist movements on Meta Ray-Ban Display.</p>
+    <div class="choose-actions">
+      <a id="openGlasses" class="btn primary" href="?view=glasses">⌕ &nbsp; Open glasses viewer <span>↗</span></a>
+      <a id="openStudio" class="btn dark" href="?view=studio">▦ &nbsp; Open upload studio <span>↗</span></a>
+    </div>
+    <div class="micro">Live session pairing · No account · No permanent uploads</div>
+  </div>
+</section>
+
+<section id="studio" class="studio hidden">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-emblem">⬡</span><span><strong>3D SHOW</strong><small>STUDIO</small></span></div>
+    <div class="side-section">YOUR WORKSPACE</div>
+    <button class="navitem active" id="tabLibrary">▦ &nbsp; Model library <span id="sidebarCount">0</span></button>
+    <button class="navitem" id="tabStage">◈ &nbsp; Assembly stage</button>
+    <div class="side-spacer"></div>
+    <div class="side-card"><span class="status-dot"></span> <span id="deskStatus">Waiting for pairing</span><small>Temporary encrypted session</small></div>
+    <a href="./" class="side-link">← Main menu</a>
+  </aside>
+  <main class="studio-main">
+    <header class="studio-header"><div><div class="eyebrow">WORKSPACE / MODELS</div><h1>3D Show Studio</h1><p>Prepare CAD geometry for your glasses, without installing software.</p></div><div class="top-tag">META DISPLAY READY</div></header>
+    <div class="studio-grid">
+      <div class="studio-column">
+        <div class="panel pairing-panel">
+          <div class="panel-title"><div><span class="eyebrow">01 · CONNECT</span><h2>Connect your glasses</h2></div><span class="pill" id="pairPill">NOT CONNECTED</span></div>
+          <p>Open the 3D Show glasses view, then enter the pairing key displayed there.</p>
+          <div class="pairline"><input id="pairInput" autocomplete="off" spellcheck="false" inputmode="text" maxlength="32" placeholder="ABCD-EFGH-JKLM" aria-label="Pairing key"><button id="connectBtn" class="btn primary">Connect <span>→</span></button></div>
+          <div class="message" id="pairHint">A private, session-only encrypted channel will be established.</div>
+        </div>
+        <div class="panel upload-panel">
+          <div class="panel-title"><div><span class="eyebrow">02 · IMPORT</span><h2>Import 3D models</h2></div><span class="count" id="fileCount">0 objects</span></div>
+          <label for="fileInput" class="drop" id="dropZone">
+            <span class="drop-icon">⬡</span><strong>Drop your CAD files here</strong><span>Or click to browse from your computer or phone</span>
+            <span class="file-types">STEP · STP</span>
+          </label><input id="fileInput" class="hidden" type="file" accept=".stp,.step" multiple>
+          <div class="message" id="importStatus">STEP files are converted locally using OpenCascade. Only optimized meshes are shared.</div>
+          <div class="progress hidden" id="progress"><div id="progressBar"></div></div>
+        </div>
+        <div class="panel library-panel">
+          <div class="panel-title"><div><span class="eyebrow">03 · ORGANIZE</span><h2>Your object collection</h2></div><button id="addDemoBtn" class="small-button">+ Sample objects</button></div>
+          <div id="modelList" class="model-list"><div class="empty"><span>◇</span><strong>No models yet</strong><small>Import STEP files or add sample shapes to explore.</small></div></div>
+          <div class="library-bottom"><button id="sendAllBtn" class="btn primary">↗ &nbsp; Send collection to glasses</button><button id="clearBtn" class="btn ghost">Clear</button></div>
+        </div>
+      </div>
+      <div class="studio-column preview-column">
+        <div class="panel canvas-panel">
+          <div class="panel-title"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Assembly stage</h2></div><span class="pill">INTERACTIVE 3D</span></div>
+          <div id="desktopScene" class="desktop-scene" role="img" aria-label="3D scene preview"><div class="scene-placeholder">⬡ <small>3D preview loading…</small></div></div>
+          <div class="stage-tabs"><button data-stage="1" class="selected">01 &nbsp; Solo</button><button data-stage="2">02 &nbsp; Duo</button><button data-stage="3">03 &nbsp; Trio</button></div>
+          <div class="stage-actions"><button id="fitAllBtn" class="small-button">⊡ Fit view</button><button id="syncBtn" class="small-button">⟳ Sync stage</button><button id="deskPrev" class="small-button">←</button><button id="deskNext" class="small-button">→</button></div>
+          <p class="canvas-note">Drag to orbit · Scroll to zoom · Switch model with arrows. Stage mode controls how many objects appear together.</p>
+        </div>
+        <div class="panel private-panel"><span>◈</span><div><strong>Built for private CAD exploration</strong><p>Files are processed in your browser. Geometry is encrypted before transmission. This first version uses a public temporary relay; don't upload sensitive or regulated CAD without a dedicated relay.</p></div></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<section id="glasses" class="glasses hidden">
+  <div class="glasses-shell">
+    <canvas id="glassesCanvas" tabindex="0" aria-label="3D Show model view"></canvas>
+    <div class="glass-header"><div class="g-brand">⬡ 3D <span>SHOW</span><small>CAD VIEWER</small></div><div id="gStatus" class="g-status">● CONNECTING</div></div>
+    <div class="glass-hint" id="glassHint">Your 3D stage is ready</div>
+    <div id="modelBadge" class="model-badge">DEMO MODEL</div>
+    <div id="pairOverlay" class="pair-overlay">
+       <span class="eyebrow">PAIR WITH COMPUTER OR PHONE</span>
+       <strong id="pairCode" class="pair-code">····-····-····</strong>
+       <p>Open 3D Show Studio on your phone or computer and enter this key.</p>
+       <div class="pair-footer"><span class="pulse"></span><span id="pairOverlayState">Starting secure session…</span></div>
+    </div>
+    <div class="glass-bottom">
+      <div class="glass-dots" id="glassDots">●</div>
+      <div class="glass-active" id="glassActive">OBJECT 01 / 01</div>
+      <div class="glass-controls">
+        <button id="gPrev" aria-label="Previous object">‹</button>
+        <button id="gWrist" class="g-primary">WRIST</button>
+        <button id="gMode">SOLO</button>
+        <button id="gMove">ORBIT</button>
+        <button id="gNext" aria-label="Next object">›</button>
+      </div>
+      <div class="glass-help" id="glassHelp">← → objects · ↑ ↓ zoom · Enter move/orbit</div>
+    </div>
+    <button id="gRecenter" class="recenter" aria-label="Recenter wrist">⟳</button>
+  </div>
+</section>
+</body>
+</html>
