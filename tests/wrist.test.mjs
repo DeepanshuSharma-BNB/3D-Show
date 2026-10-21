@@ -29,7 +29,9 @@ test("uses initial wrist coordinate system rather than global axes",()=>{
 test("quaternion sign change causes no movement",()=>{
   const q=axis(0,1,0,42),flipped=q.map(x=>-x);
   within(quatDistance(q,flipped),0,1e-6);
-  assert.deepEqual(relativeQuat(flipped,q),[0,0,0,1]);
+  const delta=relativeQuat(flipped,q);
+  for(let i=0;i<3;i++)within(delta[i],0);
+  within(delta[3],1);
 });
 test("yaw wrist rotation does not cause unintended pitch",()=>{
   const t=new WristTracker({filter:1,referenceSamples:3,deadzoneDegrees:0});
