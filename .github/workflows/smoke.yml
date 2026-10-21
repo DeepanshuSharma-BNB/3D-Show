@@ -1,0 +1,35 @@
+name: Verify 3D Show pairing and glasses UI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless browser controller
+        run: |
+          npm install --no-save --no-audit --no-fund puppeteer-core@24.25.0
+          which google-chrome
+      - name: Exercise live pairing and model transfer
+        run: node tests/browser-smoke.mjs
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3D-Show-Test-Screenshots
+          path: |
+            glasses-before.png
+            glasses-after.png
+            studio.png
+          if-no-files-found: ignore
