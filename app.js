@@ -1,6 +1,7 @@
 import {Room,makeCode,formatCode,normalizeCode} from "./transport.js";
 import {demoModels,convertStep,loadSavedModels,saveModel,deleteModel,clearSavedModels} from "./converter.js";
 import {ShowStage} from "./stage.js";
+import {WristTracker} from "./wrist.js";
 
 const $=id=>document.getElementById(id);
 const mode=new URLSearchParams(location.search).get("view")||"home";
@@ -11,6 +12,49 @@ const session={
   online:false,paired:false,wrist:false,move:false,ref:null,sensor:null,calibrate:true,lastQuat:null
 };
 let lastSynced=0,lastMoveSent=0;
+const WRIST_KEY="3d-show-wrist-tuning-v2";
+const defaults={mode:"PRECISION",sensitivity:1,reverseX:false,reverseY:false};
+let tuning={...defaults};
+try{
+  const stored=JSON.parse(localStorage.getItem(WRIST_KEY)||"{}");
+  if(["PRECISION","FREE3D"].includes(stored.mode))tuning.mode=stored.mode;
+  if(Number.isFinite(stored.sensitivity))tuning.sensitivity=clampNumber(stored.sensitivity,.5,2);
+  tuning.reverseX=stored.reverseX===true;
+  tuning.reverseY=stored.reverseY===true;
+}catch{}
+const wristTracker=new WristTracker({
+  sensitivity:tuning.sensitivity,reverseX:tuning.reverseX,reverseY:tuning.reverseY
+});
+let tuneOpen=false,lastTelemetry=0;
+function clampNumber(n,min,max){return Math.max(min,Math.min(max,n))}
+function syncTuning(){
+  wristTracker.sensitivity=tuning.sensitivity;
+  wristTracker.reverseX=tuning.reverseX;
+  wristTracker.reverseY=tuning.reverseY;
+  stage?.setWristMode(tuning.mode);
+  try{localStorage.setItem(WRIST_KEY,JSON.stringify(tuning))}catch{}
+  if(valid==="glasses"){
+    $("tunePrecision").classList.toggle("selected",tuning.mode==="PRECISION");
+    $("tuneFree").classList.toggle("selected",tuning.mode==="FREE3D");
+    $("tuneValue").textContent=tuning.sensitivity.toFixed(2)+"×";
+    $("tuneInvertH").classList.toggle("selected",tuning.reverseX);
+    $("tuneInvertV").classList.toggle("selected",tuning.reverseY);
+  }
+}
+function setTuning(partial){
+  Object.assign(tuning,partial);
+  tuning.sensitivity=clampNumber(tuning.sensitivity,.5,2);
+  syncTuning();
+  recenterWrist();
+}
+function openTune(){
+  tuneOpen=true;$("tunePanel").classList.remove("hidden");
+  syncTuning();$("tunePrecision").focus({preventScroll:true});
+}
+function closeTune(){
+  tuneOpen=false;$("tunePanel").classList.add("hidden");
+  $("glassesCanvas").focus({preventScroll:true});
+}
 const status=(id,message)=>{if($(id))$(id).textContent=message};
 const announce=(msg)=>{if(valid==="glasses")status("glassHint",msg)};
 const safe=(text)=>String(text??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -246,6 +290,16 @@ async function startGlasses(){
   $("gMove").onclick=toggleMove;
   $("gWrist").onclick=toggleWrist;
   $("gRecenter").onclick=recenterWrist;
+  $("gTune").onclick=()=>tuneOpen?closeTune():openTune();
+  $("tuneClose").onclick=closeTune;
+  $("tunePrecision").onclick=()=>setTuning({mode:"PRECISION"});
+  $("tuneFree").onclick=()=>setTuning({mode:"FREE3D"});
+  $("tuneLess").onclick=()=>setTuning({sensitivity:Math.round((tuning.sensitivity-.15)*100)/100});
+  $("tuneMore").onclick=()=>setTuning({sensitivity:Math.round((tuning.sensitivity+.15)*100)/100});
+  $("tuneInvertH").onclick=()=>setTuning({reverseX:!tuning.reverseX});
+  $("tuneInvertV").onclick=()=>setTuning({reverseY:!tuning.reverseY});
+  $("tuneCenter").onclick=()=>{recenterWrist();closeTune()};
+  syncTuning();
   $("glassesCanvas").focus();
   document.addEventListener("keydown",glassKeys);
   $("glassesCanvas").addEventListener("click",()=>{if(!session.wrist)announce("Drag to orbit · Enable WRIST for Neural Band control")});
@@ -264,11 +318,20 @@ function updateGlassUI(){
 }
 function toggleMove(){session.move=!session.move;stage?.setMove(session.move);
   updateGlassUI();announce(session.move?"MOVE: tilt wrist to shift selected object":"ORBIT: rotate to inspect")}
-const glassFocusIds=["gPrev","gZoomOut","gWrist","gMode","gMove","gZoomIn","gNext","gRecenter"];
+const glassFocusIds=["gPrev","gZoomOut","gWrist","gMode","gMove","gZoomIn","gNext","gRecenter","gTune"];
+const tuneFocusIds=["tunePrecision","tuneFree","tuneLess","tuneMore","tuneInvertH","tuneInvertV","tuneCenter","tuneClose"];
 function glassKeys(e){
   const handled=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter","Escape","Backspace"];
   if(!handled.includes(e.key))return;
   e.preventDefault();
+  if(tuneOpen){
+    if(e.key==="Escape"||e.key==="Backspace"){closeTune();return}
+    const index=Math.max(0,tuneFocusIds.indexOf(document.activeElement?.id));
+    const step=(e.key==="ArrowLeft"||e.key==="ArrowUp")?-1:1;
+    if(e.key==="Enter")document.activeElement?.click?.();
+    else $(tuneFocusIds[(index+step+tuneFocusIds.length)%tuneFocusIds.length]).focus({preventScroll:true});
+    return;
+  }
   const active=document.activeElement;
   const focused=glassFocusIds.indexOf(active?.id);
   if(focused>=0){
