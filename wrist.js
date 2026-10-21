@@ -58,9 +58,9 @@ function deadzone(n,radians=.021){
   return Math.sign(n)*Math.min(abs, outside * (1.05 - .05*Math.exp(-outside*15)));
 }
 export class WristTracker{
-  constructor({sensitivity=1,reverseX=false,reverseY=false,filter=.26,deadzoneDegrees=1.2,referenceSamples=7}={}){
+  constructor({sensitivity=1,reverseX=false,reverseY=false,turnAxis="YAW",filter=.26,deadzoneDegrees=1.2,referenceSamples=7}={}){
     this.sensitivity=clamp(sensitivity,.45,2.25);
-    this.reverseX=reverseX;this.reverseY=reverseY;
+    this.reverseX=reverseX;this.reverseY=reverseY;this.turnAxis=turnAxis;
     this.filter=filter;this.deadzoneDegrees=deadzoneDegrees;
     this.referenceSamples=referenceSamples;
     this.reset();
@@ -69,6 +69,7 @@ export class WristTracker{
     this.reference=null;
     this.samples=[];
     this.smoothed=[0,0,0];
+    this.freeSmoothed=[0,0,0];
     this.neutral=true;
     this.lastRaw=null;
   }
@@ -109,14 +110,21 @@ export class WristTracker{
     const rad=this.deadzoneDegrees*Math.PI/180;
     const sx=(this.reverseX?-1:1)*this.sensitivity;
     const sy=(this.reverseY?-1:1)*this.sensitivity;
-    const target=[
-      clamp(deadzone(rawX,rad)*sy,-2.6,2.6),
-      clamp(deadzone(rawY,rad)*sx,-2.8,2.8),
-      clamp(deadzone(rawZ,rad)*sx,-2.6,2.6)
+    const yawAxis=this.turnAxis==="TWIST"?rawZ:
+      this.turnAxis==="MIX"?(rawY+.6*rawZ):rawY;
+    const source=[
+      rawX*sy, yawAxis*sx, rawZ*sx
     ];
-    // A light one-pole noise filter; the rendering stage also eases motion.
-    for(let i=0;i<3;i++)this.smoothed[i]+=this.filter*(target[i]-this.smoothed[i]);
+    const freeSource=[rawX*sy,rawY*sx,rawZ*sx];
+    const target=source.map(v=>clamp(deadzone(v,rad),-2.8,2.8));
+    const freeTarget=freeSource.map(v=>clamp(deadzone(v,rad),-2.8,2.8));
+    // Two separate filters ensure free-3D mapping never duplicates the
+    // roll axis when the Precision mode uses twist for horizontal turning.
+    for(let i=0;i<3;i++){
+      this.smoothed[i]+=this.filter*(target[i]-this.smoothed[i]);
+      this.freeSmoothed[i]+=this.filter*(freeTarget[i]-this.freeSmoothed[i]);
+    }
     const [pitch,yaw,roll]=this.smoothed;
-    return {yaw,pitch,roll,quaternion:quatFromVector([pitch,yaw,roll]),calibrated:false};
+    return {yaw,pitch,roll,quaternion:quatFromVector(this.freeSmoothed),calibrated:false};
   }
 }
