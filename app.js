@@ -30,8 +30,17 @@ function updateStage(){
   if(valid==="glasses")updateGlassUI();
   else if(valid==="studio")drawList();
 }
-function next(delta){if(!models.length)return;index=(index+delta+models.length)%models.length;
-  updateStage();sendState()}
+function next(delta){
+  if(!models.length)return;
+  if(valid==="glasses"&&session.move&&stageCount>1){
+    stage?.chooseActive(delta);
+    updateGlassUI();
+    announce("Selected part: "+(stage?.shown?.[stage.active]?.model?.name||"object"));
+    return;
+  }
+  index=(index+delta+models.length)%models.length;
+  updateStage();sendState();
+}
 function changeStage(count){stageCount=clamp(count,1,3);updateStage();sendState()}
 function sendState(){
   if(room?.connected)room.send("state",{index,stageCount}).catch(()=>{});
@@ -243,12 +252,12 @@ function updateGlassUI(){
   if(valid!=="glasses")return;
   $("gMode").textContent=["","SOLO","DUO","TRIO"][stageCount];
   $("gMove").textContent=session.move?"MOVE":"ORBIT";
-  $("modelBadge").textContent=models[index]?.name?.slice(0,28)||"NO OBJECT";
+  $("modelBadge").textContent=(session.move?stage?.shown?.[stage.active]?.model?.name:models[index]?.name)?.slice(0,28)||"NO OBJECT";
   $("glassActive").textContent=models.length?
     "OBJECT "+String(index+1).padStart(2,"0")+" / "+String(models.length).padStart(2,"0"):
     "WAITING FOR CAD MODELS";
   $("glassDots").textContent=models.length?models.slice(0,9).map((_,i)=>i===index?"●":"·").join(" "):"◇";
-  $("glassHelp").textContent=session.move?"← → objects · ↑ ↓ zoom · Enter orbit":
+  $("glassHelp").textContent=session.move?"← → select part · ↑ ↓ zoom · Enter orbit":
     "← → objects · ↑ ↓ zoom · Enter move";
 }
 function toggleMove(){session.move=!session.move;stage?.setMove(session.move);
