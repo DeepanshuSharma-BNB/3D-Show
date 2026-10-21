@@ -70,7 +70,7 @@ async function engine(){
       await new Promise(resolve=>setTimeout(resolve,180));
     }
     return await globalThis.occtimportjs({
-      locateFile(name){return "https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/"+name}
+      locateFile(name){return new URL("./vendor/"+name,import.meta.url).href}
     });
   })();
   try{return await occtPromise}catch(e){occtPromise=null;throw e}
