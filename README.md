@@ -24,6 +24,9 @@
 - Swipe up/down: zoom in/out.
 - Pinch/Enter: switch between Orbit and Arrange modes.
 - On-screen MODE button: Solo, Duo or Trio; WRIST button enables orientation; recenter button resets wrist reference.
+- **New precision controls:** Tap ⚙ (or focus it with the Neural Band) to configure Precision vs Free 3D, sensitivity 0.50–2.00×, reversed axes, and the horizontal turning input (Yaw, Wrist twist, Balanced). Recenter in a comfortable wrist position after changes. Settings stay in the glasses browser's local storage.
+- **Precision mode** separates horizontal yaw from vertical tilt and suppresses tiny tremors. **Free 3D** applies neutral-relative quaternion orientation including roll, rather than decomposing it into two Euler angles.
+- Hold your wrist steady briefly after enabling tracking or recentering to establish a stable neutral reference.
 - Phone/desktop: drag to orbit, scroll to zoom, select objects via the model list.
 
 ## Architecture
