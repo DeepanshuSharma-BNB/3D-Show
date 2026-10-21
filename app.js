@@ -241,6 +241,8 @@ async function startGlasses(){
   try{await room.start()}catch(e){status("pairOverlayState","Pairing error: "+e.message)}
   $("gPrev").onclick=()=>next(-1);$("gNext").onclick=()=>next(1);
   $("gMode").onclick=()=>changeStage(stageCount%3+1);
+  $("gZoomOut").onclick=()=>stage?.zoom(-1);
+  $("gZoomIn").onclick=()=>stage?.zoom(1);
   $("gMove").onclick=toggleMove;
   $("gWrist").onclick=toggleWrist;
   $("gRecenter").onclick=recenterWrist;
@@ -257,23 +259,33 @@ function updateGlassUI(){
     "OBJECT "+String(index+1).padStart(2,"0")+" / "+String(models.length).padStart(2,"0"):
     "WAITING FOR CAD MODELS";
   $("glassDots").textContent=models.length?models.slice(0,9).map((_,i)=>i===index?"●":"·").join(" "):"◇";
-  $("glassHelp").textContent=session.move?"← → select part · ↑ ↓ zoom · Enter orbit":
-    "← → objects · ↑ ↓ zoom · Enter move";
+  $("glassHelp").textContent=session.move?"← → select part · ↓ tools · Enter orbit":
+    "← → objects · ↓ tools · Enter move";
 }
 function toggleMove(){session.move=!session.move;stage?.setMove(session.move);
   updateGlassUI();announce(session.move?"MOVE: tilt wrist to shift selected object":"ORBIT: rotate to inspect")}
+const glassFocusIds=["gPrev","gZoomOut","gWrist","gMode","gMove","gZoomIn","gNext","gRecenter"];
 function glassKeys(e){
-  if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter","Escape","Backspace"].includes(e.key)){
-    e.preventDefault();
-    if(e.key==="ArrowLeft")next(-1);
-    if(e.key==="ArrowRight")next(1);
-    if(e.key==="ArrowUp")stage?.zoom(1);
-    if(e.key==="ArrowDown")stage?.zoom(-1);
-    if(e.key==="Enter")toggleMove();
-    if(e.key==="Escape"||e.key==="Backspace")changeStage(stageCount%3+1);
-    $("glassesCanvas").focus({preventScroll:true});
+  const handled=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter","Escape","Backspace"];
+  if(!handled.includes(e.key))return;
+  e.preventDefault();
+  const active=document.activeElement;
+  const focused=glassFocusIds.indexOf(active?.id);
+  if(focused>=0){
+    if(e.key==="ArrowLeft")$(glassFocusIds[(focused+glassFocusIds.length-1)%glassFocusIds.length]).focus();
+    else if(e.key==="ArrowRight")$(glassFocusIds[(focused+1)%glassFocusIds.length]).focus();
+    else if(e.key==="Enter")active.click();
+    else if(["Escape","Backspace","ArrowUp"].includes(e.key))$("glassesCanvas").focus({preventScroll:true});
+    return;
   }
+  if(e.key==="ArrowLeft")next(-1);
+  else if(e.key==="ArrowRight")next(1);
+  else if(e.key==="ArrowUp")stage?.zoom(1);
+  else if(e.key==="ArrowDown")$("gWrist").focus({preventScroll:true});
+  else if(e.key==="Enter")toggleMove();
+  else if(e.key==="Escape"||e.key==="Backspace")$("gWrist").focus({preventScroll:true});
 }
+
 function relativeQuaternion(q,ref){
   const [x,y,z,w]=q,[rx,ry,rz,rw]=ref;
   // q * inverse(reference), both unit quaternions
