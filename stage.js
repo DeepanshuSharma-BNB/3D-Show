@@ -118,6 +118,7 @@ export class ShowStage {
       this.shown.push({model,pivot,idx});
     }
     this.active=0;
+    this.refreshHighlight();
     this.distance=n===1?5.1:n===2?7.5:9;
     this.targetDistance=this.distance;
   }
@@ -126,7 +127,19 @@ export class ShowStage {
     this.update(this.models,this.index,this.count);
   }
   setCount(count){this.update(this.models,this.index,count)}
-  setMove(enabled){this.moving=!!enabled}
+  setMove(enabled){this.moving=!!enabled;this.refreshHighlight()}
+  chooseActive(delta){
+    if(!this.shown?.length)return;
+    this.active=(this.active+delta+this.shown.length)%this.shown.length;
+    this.refreshHighlight();
+  }
+  refreshHighlight(){
+    (this.shown||[]).forEach((entry,i)=>entry.pivot.traverse(obj=>{
+      if(!obj.isMesh)return;
+      obj.material.emissive.set(this.moving&&i===this.active?"#2374ab":"#000000");
+      obj.material.emissiveIntensity=this.moving&&i===this.active?.35:0;
+    }));
+  }
   moveSelection(x,y,z=0){
     const item=this.shown?.[this.active];if(!item)return;
     const p=item.pivot.position;
