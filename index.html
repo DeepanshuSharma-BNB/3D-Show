@@ -108,7 +108,21 @@
       </div>
       <div class="glass-help" id="glassHelp">← → objects · ↓ tools · Enter move/orbit</div>
     </div>
-    <button id="gRecenter" class="recenter" aria-label="Recenter wrist">⟳</button>
+    <button id="gRecenter" class="recenter" aria-label="Recenter wrist orientation">⟳</button>
+    <button id="gTune" class="tune-button" aria-label="Wrist tuning settings">⚙</button>
+    <div id="tunePanel" class="tune-panel hidden" role="dialog" aria-label="Wrist control settings" aria-modal="true">
+      <div class="tune-heading"><div><span class="eyebrow">CALIBRATION</span><h2>Wrist controls</h2></div><button id="tuneClose" aria-label="Close settings">✕</button></div>
+      <p>Hold your wrist comfortably still, then recenter. Adjust the response while viewing the model.</p>
+      <div class="tune-label">ROTATION MODE</div>
+      <div class="tune-row"><button id="tunePrecision" class="selected">Precision</button><button id="tuneFree">Free 3D</button></div>
+      <div class="tune-label">SENSITIVITY</div>
+      <div class="tune-row"><button id="tuneLess" aria-label="Reduce sensitivity">−</button><span id="tuneValue" class="tune-number">1.00×</span><button id="tuneMore" aria-label="Increase sensitivity">+</button></div>
+      <div class="tune-label">DIRECTION</div>
+      <div class="tune-row"><button id="tuneInvertH">⇄ Flip horizontal</button><button id="tuneInvertV">⇅ Flip vertical</button></div>
+      <div class="tune-readout" id="wristReadout">Tracking calibration pending</div>
+      <button id="tuneCenter" class="tune-center">⟳ &nbsp; Recenter wrist</button>
+      <span class="tune-footnote">Swipes and model zoom still work independently of wrist rotation.</span>
+    </div>
   </div>
 </section>
 </body>
