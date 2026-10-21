@@ -33,9 +33,9 @@ try{
   await studio.type("#pairInput",code);
   await studio.click("#connectBtn");
   console.log("Studio connecting to encrypted relay");
-  await glasses.waitForFunction(()=>document.querySelector("#gStatus").textContent.includes("CONNECTED"),{timeout:70000});
+  await glasses.waitForFunction(()=>document.querySelector("#gStatus").textContent.includes("CONNECTED"),{polling:250,timeout:70000});
   console.log("Pairing succeeded");
-  await glasses.waitForFunction(()=>document.querySelector("#glassActive").textContent.includes("/ 03"),{timeout:70000});
+  await glasses.waitForFunction(()=>document.querySelector("#glassActive").textContent.includes("/ 03"),{polling:250,timeout:70000});
   console.log("Three models transferred to glasses");
   await glasses.click("#gMode");
   assert.equal(await glasses.$eval("#gMode",e=>e.textContent),"DUO");
@@ -47,7 +47,11 @@ try{
   assert.equal(await glasses.evaluate(()=>document.activeElement?.id),"gWrist");
   console.log("Neural Band D-pad can focus wrist activation");
   assert.equal(await glasses.$eval("#glassesCanvas",el=>el.querySelectorAll("canvas").length),1);
+  await glasses.bringToFront();
+  await wait(1500);
   await glasses.screenshot({path:"glasses-after.png"});
+  await studio.bringToFront();
+  await wait(750);
   await studio.screenshot({path:"studio.png"});
   console.log("Cross-device smoke test PASSED");
   if(issues.length)console.log("Non-fatal browser warnings:",issues.slice(0,12));
