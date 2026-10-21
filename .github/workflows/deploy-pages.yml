@@ -34,10 +34,21 @@ jobs:
           grep -q "glassesCanvas" index.html
           grep -q "occt-import-js" index.html
           grep -q "RelativeOrientationSensor" app.js
+      - name: Bundle pinned browser dependencies
+        run: |
+          npm install --no-save --ignore-scripts --no-audit --no-fund three@0.160.1 mqtt@5.14.1 occt-import-js@0.0.23
+          test -s node_modules/three/build/three.module.js
+          test -s node_modules/mqtt/dist/mqtt.min.js
+          test -s node_modules/occt-import-js/dist/occt-import-js.js
+          test -s node_modules/occt-import-js/dist/occt-import-js.wasm
       - name: Prepare Pages site
         run: |
-          mkdir -p public-site
+          mkdir -p public-site/vendor
           cp index.html style.css app.js stage.js converter.js transport.js icon.svg manifest.webmanifest public-site/
+          cp node_modules/three/build/*.js public-site/vendor/
+          cp node_modules/mqtt/dist/mqtt.min.js public-site/vendor/
+          cp node_modules/occt-import-js/dist/occt-import-js.js public-site/vendor/
+          cp node_modules/occt-import-js/dist/occt-import-js.wasm public-site/vendor/
           touch public-site/.nojekyll
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
