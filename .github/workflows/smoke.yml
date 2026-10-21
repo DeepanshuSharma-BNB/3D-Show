@@ -1,6 +1,11 @@
 name: Verify 3D Show pairing and glasses UI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/browser-smoke.mjs'
+      - '.github/workflows/smoke.yml'
   workflow_dispatch:
 
 permissions:
