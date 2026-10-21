@@ -13,17 +13,18 @@ const session={
 };
 let lastSynced=0,lastMoveSent=0;
 const WRIST_KEY="3d-show-wrist-tuning-v2";
-const defaults={mode:"PRECISION",sensitivity:1,reverseX:false,reverseY:false};
+const defaults={mode:"PRECISION",turnAxis:"YAW",sensitivity:1,reverseX:false,reverseY:false};
 let tuning={...defaults};
 try{
   const stored=JSON.parse(localStorage.getItem(WRIST_KEY)||"{}");
   if(["PRECISION","FREE3D"].includes(stored.mode))tuning.mode=stored.mode;
+  if(["YAW","TWIST","MIX"].includes(stored.turnAxis))tuning.turnAxis=stored.turnAxis;
   if(Number.isFinite(stored.sensitivity))tuning.sensitivity=clampNumber(stored.sensitivity,.5,2);
   tuning.reverseX=stored.reverseX===true;
   tuning.reverseY=stored.reverseY===true;
 }catch{}
 const wristTracker=new WristTracker({
-  sensitivity:tuning.sensitivity,reverseX:tuning.reverseX,reverseY:tuning.reverseY
+  sensitivity:tuning.sensitivity,reverseX:tuning.reverseX,reverseY:tuning.reverseY,turnAxis:tuning.turnAxis
 });
 let tuneOpen=false,lastTelemetry=0;
 function clampNumber(n,min,max){return Math.max(min,Math.min(max,n))}
@@ -31,12 +32,14 @@ function syncTuning(){
   wristTracker.sensitivity=tuning.sensitivity;
   wristTracker.reverseX=tuning.reverseX;
   wristTracker.reverseY=tuning.reverseY;
+  wristTracker.turnAxis=tuning.turnAxis;
   stage?.setWristMode(tuning.mode);
   try{localStorage.setItem(WRIST_KEY,JSON.stringify(tuning))}catch{}
   if(valid==="glasses"){
     $("tunePrecision").classList.toggle("selected",tuning.mode==="PRECISION");
     $("tuneFree").classList.toggle("selected",tuning.mode==="FREE3D");
     $("tuneValue").textContent=tuning.sensitivity.toFixed(2)+"×";
+    $("tuneAxis").textContent="Turn input: "+({YAW:"Yaw",TWIST:"Wrist twist",MIX:"Balanced"}[tuning.turnAxis]||"Yaw")+" · Change";
     $("tuneInvertH").classList.toggle("selected",tuning.reverseX);
     $("tuneInvertV").classList.toggle("selected",tuning.reverseY);
   }
@@ -294,6 +297,7 @@ async function startGlasses(){
   $("tuneClose").onclick=closeTune;
   $("tunePrecision").onclick=()=>setTuning({mode:"PRECISION"});
   $("tuneFree").onclick=()=>setTuning({mode:"FREE3D"});
+  $("tuneAxis").onclick=()=>setTuning({turnAxis:({YAW:"TWIST",TWIST:"MIX",MIX:"YAW"}[tuning.turnAxis]||"YAW")});
   $("tuneLess").onclick=()=>setTuning({sensitivity:Math.round((tuning.sensitivity-.15)*100)/100});
   $("tuneMore").onclick=()=>setTuning({sensitivity:Math.round((tuning.sensitivity+.15)*100)/100});
   $("tuneInvertH").onclick=()=>setTuning({reverseX:!tuning.reverseX});
@@ -320,7 +324,7 @@ function toggleMove(){session.move=!session.move;stage?.setMove(session.move);
   if(session.wrist)recenterWrist();
   updateGlassUI();announce(session.move?"MOVE: recentered · tilt to shift selected object":"ORBIT: recentered · rotate to inspect")}
 const glassFocusIds=["gPrev","gZoomOut","gWrist","gMode","gMove","gZoomIn","gNext","gRecenter","gTune"];
-const tuneFocusIds=["tunePrecision","tuneFree","tuneLess","tuneMore","tuneInvertH","tuneInvertV","tuneCenter","tuneClose"];
+const tuneFocusIds=["tunePrecision","tuneFree","tuneAxis","tuneLess","tuneMore","tuneInvertH","tuneInvertV","tuneCenter","tuneClose"];
 function glassKeys(e){
   const handled=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter","Escape","Backspace"];
   if(!handled.includes(e.key))return;
