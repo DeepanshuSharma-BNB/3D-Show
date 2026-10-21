@@ -85,3 +85,21 @@ test("calibration waits for stationary readings",()=>{
   for(let i=0;i<3;i++)t.sample(axis(0,1,0,24));
   assert.notEqual(t.reference,null);
 });
+
+test("wrist twist can serve as a horizontal turn input without vertical drift",()=>{
+  const t=new WristTracker({filter:1,referenceSamples:3,deadzoneDegrees:0,turnAxis:"TWIST"});
+  calibrated(t);
+  const v=t.sample(axis(0,0,1,30));
+  assert.ok(v.yaw>.51&&v.yaw<.53);
+  within(v.pitch,0);
+  // Full-3D orientation stays a pure roll, not duplicated on the yaw axis.
+  const vector=rotationVector(v.quaternion);
+  within(vector[1],0);within(vector[2],30*Math.PI/180);
+});
+test("balanced input can combine yaw and twist, without vertical pitch",()=>{
+  const t=new WristTracker({filter:1,referenceSamples:3,deadzoneDegrees:0,turnAxis:"MIX"});
+  calibrated(t);
+  const v=t.sample(axis(0,0,1,30));
+  assert.ok(v.yaw>.30&&v.yaw<.32);
+  within(v.pitch,0);
+});
