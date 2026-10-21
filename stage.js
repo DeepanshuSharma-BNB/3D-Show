@@ -6,6 +6,10 @@ export class ShowStage {
     this.host=host;this.glasses=glasses;this.onMove=onMove;
     this.models=[];this.index=0;this.count=1;this.active=0;
     this.yaw=.42;this.pitch=.19;this.targetYaw=.42;this.targetPitch=.19;
+    this.freeWrist=false;
+    this.baseWristQuat=new THREE.Quaternion().setFromEuler(new THREE.Euler(.19,.42,0,"YXZ"));
+    this.targetFreeQuat=this.baseWristQuat.clone();
+    this.precisionQuat=this.baseWristQuat.clone();
     this.distance=5.1;this.targetDistance=5.1;
     this.moving=false;this.dragging=false;this.pointer={x:0,y:0};
     this.root=new THREE.Group();
@@ -154,22 +158,35 @@ export class ShowStage {
     for(const item of this.models)item.offset=[0,0,0];
     this.update(this.models,this.index,this.count);
   }
-  centerWrist(){this.targetYaw=.42;this.targetPitch=.19}
+  centerWrist(){
+    this.targetYaw=.42;this.targetPitch=.19;
+    this.targetFreeQuat.copy(this.baseWristQuat);
+  }
+  setWristMode(mode){
+    this.freeWrist=mode==="FREE3D";
+    this.centerWrist();
+  }
   zoom(d){this.targetDistance=Math.max(2.5,Math.min(16,this.targetDistance*(d>0?.85:1.17)))}
-  wristInput(yaw,pitch){
+  wristInput(yaw,pitch,roll=0,quat=null){
     if(this.moving){
       const obj=this.shown?.[this.active];
       if(!obj)return;
-      // Wrist-controlled relative translation, smoothed by the caller.
       const baseline=(this.active-(this.shown.length-1)/2)*(this.shown.length===2?2.35:1.91);
-      const wantedX=Math.max(-3.5,Math.min(3.5,baseline+yaw*.7));
-      const wantedY=Math.max(-2,Math.min(2,-pitch*.65));
-      const movementX=(wantedX-obj.pivot.position.x)*.16;
-      const movementY=(wantedY-obj.pivot.position.y)*.16;
-      if(Math.abs(movementX)+Math.abs(movementY)>.003)this.moveSelection(movementX,movementY,0);
+      const wantedX=Math.max(-3.5,Math.min(3.5,baseline+yaw*.62));
+      const wantedY=Math.max(-2,Math.min(2,-pitch*.62));
+      const dx=(wantedX-obj.pivot.position.x)*.14;
+      const dy=(wantedY-obj.pivot.position.y)*.14;
+      if(Math.abs(dx)+Math.abs(dy)>.004)this.moveSelection(dx,dy,0);
+    }else if(this.freeWrist && quat){
+      // Match wrist-relative 3D orientation directly. Never decompose it
+      // into Euler angles: doing so introduces axis mixing and gimbal jumps.
+      this.targetFreeQuat.copy(this.baseWristQuat)
+        .multiply(new THREE.Quaternion(...quat)).normalize();
     }else{
-      this.targetYaw=Math.max(-3.4,Math.min(3.4,.42+yaw*1.3));
-      this.targetPitch=Math.max(-1.12,Math.min(1.12,.19+pitch*.9));
+      // Precision turntable: yaw, pitch are independently extracted from
+      // a neutral-relative quaternion. Roll intentionally does not affect view.
+      this.targetYaw=Math.max(-3.1,Math.min(3.1,.42+yaw*1.14));
+      this.targetPitch=Math.max(-1.09,Math.min(1.09,.19+pitch*.94));
     }
   }
   animate(now){
@@ -180,7 +197,12 @@ export class ShowStage {
     this.yaw+=(this.targetYaw-this.yaw)*.13;
     this.pitch+=(this.targetPitch-this.pitch)*.13;
     this.distance+=(this.targetDistance-this.distance)*.15;
-    this.root.rotation.set(this.pitch,this.yaw,.02);
+    if(this.freeWrist&&!this.moving){
+      this.root.quaternion.slerp(this.targetFreeQuat,.24);
+    }else{
+      this.precisionQuat.setFromEuler(new THREE.Euler(this.pitch,this.yaw,0,"YXZ"));
+      this.root.quaternion.slerp(this.precisionQuat,.24);
+    }
     this.camera.position.set(0,.15,this.distance);
     this.camera.lookAt(0,0,0);
     this.renderer.render(this.scene,this.camera);
