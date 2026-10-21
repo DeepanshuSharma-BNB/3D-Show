@@ -317,7 +317,8 @@ function updateGlassUI(){
     "← → objects · ↓ tools · Enter move";
 }
 function toggleMove(){session.move=!session.move;stage?.setMove(session.move);
-  updateGlassUI();announce(session.move?"MOVE: tilt wrist to shift selected object":"ORBIT: rotate to inspect")}
+  if(session.wrist)recenterWrist();
+  updateGlassUI();announce(session.move?"MOVE: recentered · tilt to shift selected object":"ORBIT: recentered · rotate to inspect")}
 const glassFocusIds=["gPrev","gZoomOut","gWrist","gMode","gMove","gZoomIn","gNext","gRecenter","gTune"];
 const tuneFocusIds=["tunePrecision","tuneFree","tuneLess","tuneMore","tuneInvertH","tuneInvertV","tuneCenter","tuneClose"];
 function glassKeys(e){
@@ -349,27 +350,29 @@ function glassKeys(e){
   else if(e.key==="Escape"||e.key==="Backspace")$("gWrist").focus({preventScroll:true});
 }
 
-function relativeQuaternion(q,ref){
-  const [x,y,z,w]=q,[rx,ry,rz,rw]=ref;
-  // q * inverse(reference), both unit quaternions
-  const bx=-rx,by=-ry,bz=-rz,bw=rw;
-  return [w*bx+x*bw+y*bz-z*by,w*by-x*bz+y*bw+z*bx,
-    w*bz+x*by-y*bx+z*bw,w*bw-x*bx-y*by-z*bz];
-}
 let lastWrist=0;
 function readWrist(quat){
-  if(!session.wrist||!quat||quat.length!==4||!Array.from(quat).every(Number.isFinite))return;
-  if(!session.ref){session.ref=Array.from(quat);announce("Wrist calibrated · Rotate to inspect");return}
-  if(performance.now()-lastWrist<28)return;lastWrist=performance.now();
-  const [x,y,z,w]=relativeQuaternion(quat,session.ref);
-  const yaw=2*Math.atan2(y,w)+.7*2*Math.atan2(z,w);
-  const pitch=2*Math.atan2(x,w)-.25*2*Math.atan2(z,w);
-  stage?.wristInput(clamp(yaw,-2.6,2.6),clamp(pitch,-1.7,1.7));
+  if(!session.wrist)return;
+  if(performance.now()-lastWrist<27)return;
+  lastWrist=performance.now();
+  const reading=wristTracker.sample(quat);
+  if(!reading)return;
+  if(reading.calibrated){
+    announce("Wrist calibrated · "+(tuning.mode==="PRECISION"?"Precision":"Free 3D")+" ready");
+    status("wristReadout","Neutral set · rotate to inspect");
+    return;
+  }
+  stage?.wristInput(reading.yaw,reading.pitch,reading.roll,reading.quaternion);
+  if(tuneOpen&&performance.now()-lastTelemetry>180){
+    lastTelemetry=performance.now();
+    const deg=n=>(n*180/Math.PI).toFixed(1)+"°";
+    status("wristReadout","Turn "+deg(reading.yaw)+" · Tilt "+deg(reading.pitch)+" · Roll "+deg(reading.roll));
+  }
 }
 function toggleWrist(){
   if(session.wrist){
     try{session.sensor?.stop()}catch{}
-    session.sensor=null;session.wrist=false;session.ref=null;
+    session.sensor=null;session.wrist=false;wristTracker.reset();
     $("gWrist").textContent="WRIST";announce("Wrist motion paused");return;
   }
   if(!("RelativeOrientationSensor" in globalThis)){
@@ -377,19 +380,27 @@ function toggleWrist(){
   }
   try{
     const sensor=new RelativeOrientationSensor({frequency:30,referenceFrame:"device",sensorId:"emg-wrist"});
-    session.sensor=sensor;session.ref=null;session.wrist=true;
+    session.sensor=sensor;session.wrist=true;lastWrist=0;wristTracker.reset();
+    stage?.centerWrist();
     sensor.addEventListener("reading",()=>readWrist(sensor.quaternion));
     sensor.addEventListener("error",e=>{
       announce("Wrist sensor: "+(e.error?.name||"unavailable"));
       try{sensor.stop()}catch{}session.wrist=false;session.sensor=null;
       $("gWrist").textContent="WRIST";
+      status("wristReadout","Wrist sensor unavailable");
     });
     sensor.start();
     $("gWrist").textContent="ACTIVE";
-    announce("Hold your wrist still to calibrate");
+    announce("Hold wrist steady for neutral calibration");
+    status("wristReadout","Calibrating neutral wrist position…");
   }catch(e){session.wrist=false;session.sensor=null;announce("Wrist unavailable: "+e.message)}
 }
-function recenterWrist(){session.ref=null;stage?.centerWrist();announce("Hold wrist still to recenter")}
+function recenterWrist(){
+  wristTracker.reset();
+  stage?.centerWrist();
+  status("wristReadout",session.wrist?"Hold wrist still for calibration":"Enable wrist tracking first");
+  announce(session.wrist?"Hold wrist steady to recenter":"Wrist mode is off");
+}
 
 if(valid==="studio")startStudio();
 else if(valid==="glasses")startGlasses();
