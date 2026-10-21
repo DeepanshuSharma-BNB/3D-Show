@@ -1,0 +1,50 @@
+name: Publish 3D Show to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: \${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout webapp
+        uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate source and pairing helpers
+        run: |
+          npm run check
+          npm test
+          grep -q "glassesCanvas" index.html
+          grep -q "occt-import-js" index.html
+          grep -q "RelativeOrientationSensor" app.js
+      - name: Prepare Pages site
+        run: |
+          mkdir -p public-site
+          cp index.html style.css app.js stage.js converter.js transport.js icon.svg manifest.webmanifest public-site/
+          touch public-site/.nojekyll
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public-site
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
